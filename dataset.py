@@ -1,19 +1,14 @@
-from functools import partial
+from collections.abc import Callable, Sequence
+from functools import partial, reduce
 from inspect import signature
-from typing import Callable, Final
+from pathlib import Path
+from typing import Final
 
 import numpy as np
+import xarray as xr
 from model_variables import VariableAttrs
+from numpy.typing import NDArray
 from pandas import MultiIndex
-from xarray import (
-    DataArray,
-    Dataset,
-    concat,
-    load_dataset,
-    merge,
-    open_dataset,
-    open_mfdataset,
-)
 
 ESSENTIAL_VARIABLES: Final[list] = [
     "axyp",
@@ -21,43 +16,101 @@ ESSENTIAL_VARIABLES: Final[list] = [
 ]  # always need cell area and ocean fraction
 
 
+def compose(*functions: Sequence[Callable]) -> Callable:
+    return reduce(lambda f, g: lambda x: g(f(x)), functions)
+
+
 def build_dataset_from_multiple_files(
-    variables, filepaths, dimensions, outputs_per_year=12, month_length_weights=None
-):
-    keep_specific_variables = partial(
-        lambda dataset, list_of_variables: dataset.get(list_of_variables),
-        list_of_variables=ESSENTIAL_VARIABLES + list(variables),
+    model_output_filepaths: Sequence[Path],
+    dimensions: xr.Dataset,
+    variables: list[str],
+    outputs_per_year: int = 12,
+    month_length_weights: NDArray[np.float_] | None = None,
+    case_name: str = "file_index",
+    month_name: str = "record",
+) -> xr.Dataset:
+    def select_variables(
+        dataset: xr.Dataset,
+        selected_variables: list[str] = variables + ESSENTIAL_VARIABLES,
+    ):
+        return dataset.get(selected_variables)
+
+    def rename_dimensions(
+        dataset: xr.Dataset,
+        possible_dimension_renames: dict[str, str] = {
+            case_name: "case",
+            month_name: "month",
+        },
+    ) -> xr.Dataset:
+        dimension_renames: dict[str, str] = {
+            original_dimension_name: new_dimension_name
+            for original_dimension_name, new_dimension_name in possible_dimension_renames.items()
+            if original_dimension_name in dataset.dims
+        }
+
+        return dataset.rename_dims(dimension_renames)
+
+    def select_time_indices(
+        dataset: xr.Dataset,
+        time_unit: str = "month",
+        time_slice: slice = slice(None, 360),
+    ) -> xr.Dataset:
+        return dataset.sel({time_unit: time_slice})
+
+    apply_preprocessing_steps: Callable[[xr.Dataset], xr.Dataset] = compose(
+        select_variables,
+        rename_dimensions,
+        select_time_indices,
     )
 
-    data = open_mfdataset(
-        filepaths,
+    def assign_dimensions(
+        dataset: xr.Dataset, dimensions: xr.Dataset = dimensions
+    ) -> xr.Dataset:
+        return dataset.assign(dimensions)
+
+    apply_postprocessing_steps: Callable[[xr.Dataset], xr.Dataset] = compose(
+        assign_dimensions,
+        partial(
+            reshape_time_dimensions,
+            outputs_per_year=outputs_per_year,
+            month_length_weights=month_length_weights,
+        ),
+    )
+
+    dataset: xr.Dataset = xr.open_mfdataset(
+        model_output_filepaths,
         combine="nested",
         coords="different",
         concat_dim="case",
-        preprocess=keep_specific_variables,
+        preprocess=apply_preprocessing_steps,  # important because it pares down each file before concatenating
     )
-    data = data.assign(dimensions)
-    data = reshape_time_dimensions(data, outputs_per_year, month_length_weights)
 
-    return data
+    return apply_postprocessing_steps(dataset)
 
 
-def build_dataset_from_compiled_file(
-    variables,
-    filepath,
-    dimensions,
-    outputs_per_year=12,
-    month_length_weights=None,
-    case_name="file_index",
-    month_name="record",
+def build_dataset_from_single_file(
+    variables: Sequence[str],
+    model_output_filepaths: Path,
+    dimensions: xr.Dataset,
+    outputs_per_year: int = 12,
+    month_length_weights: NDArray[np.float_] | None = None,
+    case_name: str = "file_index",
+    month_name: str = "record",
 ):
     dimension_renames = {case_name: "case", month_name: "month"}
 
-    dataset = open_dataset(filepath)
+    dataset = xr.open_dataset(model_output_filepaths)
     dataset = dataset.get(ESSENTIAL_VARIABLES + list(variables))
+
+    dimension_renames: dict[str, str] = {
+        original_dimension_name: new_dimension_name
+        for original_dimension_name, new_dimension_name in dimension_renames.items()
+        if original_dimension_name in dataset.dims
+    }
+    if dimension_renames:
+        dataset = dataset.rename_dims(dimension_renames)
+
     dataset = dataset.assign(dimensions)
-    dataset = dataset.rename_dims(dimension_renames)
-    dataset = dataset.rename({case_name: "case"})
     dataset = dataset.sel(month=slice(None, 360))
     dataset = reshape_time_dimensions(dataset, outputs_per_year, month_length_weights)
 
@@ -90,7 +143,7 @@ def reshape_time_dimensions(data, outputs_per_year=12, month_length_weights=None
             )
 
     if month_length_weights is not None:
-        month_length_weights = DataArray(
+        month_length_weights = xr.DataArray(
             month_length_weights,
             coords={
                 coord_name: coord_value
@@ -100,15 +153,11 @@ def reshape_time_dimensions(data, outputs_per_year=12, month_length_weights=None
             dims=["case", "month"],
         ).to_dataset(name="month_length_weights")
 
-    return merge([data, month_length_weights])
+    return xr.merge([data, month_length_weights])
 
 
-def add_variables_to_dataset(dataset: Dataset, calculators: dict[str, Callable]):
-    # new_variables = {}
-    # for variable, calculator in calculators.items():
-    #    # print(f"{variable}: {signature(calculator)=}")
-    #   new_variables[variable] = calculator(dataset=dataset)
-    new_variables = {
+def add_variables_to_dataset(dataset: xr.Dataset, calculators: dict[str, Callable]):
+    new_variables: dict[str, xr.DataArray] = {
         variable: calculator(dataset=dataset)
         for variable, calculator in calculators.items()
     }
@@ -116,7 +165,7 @@ def add_variables_to_dataset(dataset: Dataset, calculators: dict[str, Callable])
     return dataset.assign(**new_variables)
 
 
-def add_attributes(dataset: Dataset, attributes: dict[str, VariableAttrs]):
+def add_attributes(dataset: xr.Dataset, attributes: dict[str, VariableAttrs]):
     for variable, variable_attributes in attributes.items():
         try:
             dataset[variable] = dataset.get(variable).assign_attrs(
@@ -130,7 +179,7 @@ def add_attributes(dataset: Dataset, attributes: dict[str, VariableAttrs]):
 
 
 def add_variables_and_attributes(
-    dataset: Dataset,
+    dataset: xr.Dataset,
     calculators: dict[str, Callable],
     attributes: dict[str, VariableAttrs],
 ):
@@ -142,7 +191,7 @@ def load_dataset_and_add_calculated_variables(
     calculators: dict[str, Callable],
     attributes: dict[str, VariableAttrs],
 ):
-    dataset = load_dataset(filepath)
+    dataset = xr.load_dataset(filepath)
 
     return add_variables_and_attributes(dataset, calculators, attributes)
 
@@ -159,7 +208,7 @@ def map_function_of_function_arguments_to_dataset_variables(
     second_order_dataset_function, *dataset_functions
 ):
     """
-    Dataset functions are functions that take dataset variables as arguments.
+    xr.Dataset functions are functions that take dataset variables as arguments.
     Sometimes they also take arguments that are functions of dataset variables themselves.
     That's what I mean by "second order".
 
@@ -205,10 +254,10 @@ def map_function_arguments_to_dataset_variables(function, variable_mapping):
 
 def concatenate_datasets(*metrics_filepaths):
     datasets = (
-        load_dataset(metrics_filepath) for metrics_filepath in metrics_filepaths
+        xr.load_dataset(metrics_filepath) for metrics_filepath in metrics_filepaths
     )
 
-    combined_dataset = concat(datasets, dim="case")
+    combined_dataset = xr.concat(datasets, dim="case")
     combined_dataset = combined_dataset.sortby(combined_dataset.rotation_period)
 
     return combined_dataset
@@ -290,7 +339,7 @@ def take_annual_sum(quantity, month_length_weights):
     return quantity_weighted_by_month_length.sum("month")
 
 
-def take_average_across_all_years(quantity: DataArray):
+def take_average_across_all_years(quantity: xr.DataArray):
     """That is, the average January across all years, the average Feb..."""
     return quantity.mean("year")
 

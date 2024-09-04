@@ -24,6 +24,12 @@ model_variables = {
         units="mm/day",
         colormap="cmap_precipitation",
     ),
+    "evap": VariableAttrs(
+        long_name="Evaporation",
+        plot_name="Evaporation (mm/day)",
+        units="mm/day",
+        colormap="summer",
+    ),
     "snowicefr": VariableAttrs(
         long_name="Snow/Ice Cover",
         plot_name="Snow/Ice Cover (\%)",
