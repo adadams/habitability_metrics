@@ -2,7 +2,7 @@ from collections.abc import Callable, Sequence
 from functools import partial, reduce
 from inspect import signature
 from pathlib import Path
-from typing import Final
+from typing import Final, Protocol
 
 import numpy as np
 import xarray as xr
@@ -18,6 +18,10 @@ ESSENTIAL_VARIABLES: Final[list] = [
 
 def compose(*functions: Sequence[Callable]) -> Callable:
     return reduce(lambda f, g: lambda x: g(f(x)), functions)
+
+
+class OperatesOnDataset(Protocol):
+    def __call__(self, dataset: xr.Dataset) -> xr.Dataset: ...
 
 
 def build_dataset_from_multiple_files(
@@ -90,17 +94,17 @@ def build_dataset_from_multiple_files(
 
 def build_dataset_from_single_file(
     variables: Sequence[str],
-    model_output_filepaths: Path,
+    model_output_filepaths: Path,  # to file that can be loaded as xr.Dataset
     dimensions: xr.Dataset,
     outputs_per_year: int = 12,
     month_length_weights: NDArray[np.float_] | None = None,
     case_name: str = "file_index",
     month_name: str = "record",
-):
+) -> xr.Dataset:
     dimension_renames = {case_name: "case", month_name: "month"}
 
-    dataset = xr.open_dataset(model_output_filepaths)
-    dataset = dataset.get(ESSENTIAL_VARIABLES + list(variables))
+    dataset: xr.Dataset = xr.open_dataset(model_output_filepaths)
+    dataset: xr.Dataset = dataset.get(ESSENTIAL_VARIABLES + list(variables))
 
     dimension_renames: dict[str, str] = {
         original_dimension_name: new_dimension_name
@@ -117,7 +121,9 @@ def build_dataset_from_single_file(
     return dataset
 
 
-def reshape_time_dimensions(data, outputs_per_year=12, month_length_weights=None):
+def reshape_time_dimensions(
+    data: xr.Dataset, outputs_per_year=12, month_length_weights=None
+) -> xr.Dataset:
     if ("month" in data.dims) or (("time" in data.dims) and outputs_per_year == 12):
         if "month" in data.dims:
             month_label = "month"
@@ -156,7 +162,9 @@ def reshape_time_dimensions(data, outputs_per_year=12, month_length_weights=None
     return xr.merge([data, month_length_weights])
 
 
-def add_variables_to_dataset(dataset: xr.Dataset, calculators: dict[str, Callable]):
+def add_variables_to_dataset(
+    dataset: xr.Dataset, calculators: dict[str, Callable]
+) -> xr.Dataset:
     new_variables: dict[str, xr.DataArray] = {
         variable: calculator(dataset=dataset)
         for variable, calculator in calculators.items()
@@ -165,7 +173,9 @@ def add_variables_to_dataset(dataset: xr.Dataset, calculators: dict[str, Callabl
     return dataset.assign(**new_variables)
 
 
-def add_attributes(dataset: xr.Dataset, attributes: dict[str, VariableAttrs]):
+def add_attributes(
+    dataset: xr.Dataset, attributes: dict[str, VariableAttrs]
+) -> xr.Dataset:
     for variable, variable_attributes in attributes.items():
         try:
             dataset[variable] = dataset.get(variable).assign_attrs(
@@ -182,7 +192,7 @@ def add_variables_and_attributes(
     dataset: xr.Dataset,
     calculators: dict[str, Callable],
     attributes: dict[str, VariableAttrs],
-):
+) -> xr.Dataset:
     return add_attributes(add_variables_to_dataset(dataset, calculators), attributes)
 
 
@@ -190,18 +200,43 @@ def load_dataset_and_add_calculated_variables(
     filepath: str,
     calculators: dict[str, Callable],
     attributes: dict[str, VariableAttrs],
-):
+) -> xr.Dataset:
     dataset = xr.load_dataset(filepath)
 
     return add_variables_and_attributes(dataset, calculators, attributes)
 
 
-def get_getter_from_dataset(variable_name: str):
+def rename_dataset_variables(
+    dataset: xr.Dataset, variable_renames: dict[str, str]
+) -> xr.Dataset:
+    return dataset.rename(variable_renames)
+
+
+class OperatesOnVariableinDataset(Protocol):
+    def __call__(self, dataset: xr.Dataset) -> xr.DataArray:
+        pass
+
+
+class OperatesOnDataArray(Protocol):
+    def __call__(self, dataset: xr.DataArray) -> xr.DataArray:
+        pass
+
+
+def get_getter_from_dataset(variable_name: str) -> Callable[[xr.Dataset], xr.DataArray]:
     return lambda dataset: dataset[variable_name]
 
 
-def apply_to_variable(function: Callable, variable_name: str, dataset):
-    return (function(get_getter_from_dataset(variable_name)))(dataset=dataset)
+def apply_to_variable(
+    function: Callable[[xr.DataArray], xr.DataArray],
+    variable_name: str,
+    dataset: xr.Dataset,
+    result_variable_name: str = None,
+) -> xr.DataArray:
+    result = function(get_getter_from_dataset(variable_name))(dataset=dataset)
+
+    return (
+        result if result_variable_name is None else result.rename(result_variable_name)
+    )
 
 
 def map_function_of_function_arguments_to_dataset_variables(
@@ -240,7 +275,9 @@ def map_function_of_function_arguments_to_dataset_variables(
     )
 
 
-def map_function_arguments_to_dataset_variables(function, variable_mapping):
+def map_function_arguments_to_dataset_variables(
+    function, variable_mapping
+) -> Callable[[xr.Dataset], xr.DataArray]:
     def function_using_dataset(*non_dataset_args, dataset, function, variable_mapping):
         dataset_kwargs = {
             kwarg: dataset.get(label) for kwarg, label in variable_mapping.items()
@@ -308,7 +345,9 @@ def get_ocean_area(dataset):
     return ocean_percentage * cell_area
 
 
-def take_every_average(quantity, area_weights, month_length_weights):
+def take_every_average(
+    quantity: xr.DataArray, area_weights: xr.DataArray, month_length_weights
+):
     if "month" in area_weights.dims:
         area_weights = area_weights.weighted(month_length_weights).mean("month")
     if "year" in area_weights.dims:
@@ -360,7 +399,7 @@ def average_dataset_over_globe(quantity_mapper):
 def average_dataset_over_globe_and_time(quantity_mapper):
     return map_function_of_function_arguments_to_dataset_variables(
         map_function_arguments_to_dataset_variables(
-            take_every_average, dict(month_length_weights="month_length_weights")
+            take_every_average, {"month_length_weights": "month_length_weights"}
         ),
         quantity_mapper,
         get_global_area,
@@ -376,7 +415,7 @@ def average_dataset_over_land(quantity_mapper):
 def average_dataset_over_land_and_time(quantity_mapper):
     return map_function_of_function_arguments_to_dataset_variables(
         map_function_arguments_to_dataset_variables(
-            take_every_average, dict(month_length_weights="month_length_weights")
+            take_every_average, {"month_length_weights": "month_length_weights"}
         ),
         quantity_mapper,
         get_land_area,
@@ -392,7 +431,7 @@ def average_dataset_over_ocean(quantity_mapper):
 def average_dataset_over_ocean_and_time(quantity_mapper):
     return map_function_of_function_arguments_to_dataset_variables(
         map_function_arguments_to_dataset_variables(
-            take_every_average, dict(month_length_weights="month_length_weights")
+            take_every_average, {"month_length_weights": "month_length_weights"}
         ),
         quantity_mapper,
         get_ocean_area,

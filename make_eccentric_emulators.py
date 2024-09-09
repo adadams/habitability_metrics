@@ -17,7 +17,7 @@ from plotting_customizations import (
     cmap_temperature,
 )
 from plotting_functions import plot_grid_of_grids
-from xarray import concat, load_dataset
+from xarray import Dataset, concat, load_dataset
 
 NUMBER_OF_ROWS = 5
 NUMBER_OF_COLUMNS = 5
@@ -152,10 +152,10 @@ def plot_emulated_grid(
 
 
 def make_eccentric_emulators_and_plot(
-    eccentric_metrics,
-    filename_suffix,
-    emulated_variable_names=["fT_land", "fprec_land", "habitability_land"],
-    use_polar=USE_POLAR,
+    eccentric_metrics: Dataset,
+    filename_suffix: str,
+    emulated_variable_names: list[str],
+    use_polar: bool = USE_POLAR,
 ):
     eccentric_coordinates = get_eccentric_coordinates_as_dict(eccentric_metrics)
     eccentric_coordinates_for_grid = (
@@ -173,15 +173,25 @@ def make_eccentric_emulators_and_plot(
     )
 
 
-def run_for_training_and_all_metrics():
+def run_for_training_and_all_metrics(
+    emulated_variable_names: list[str] = ["fT_land", "fprec_land", "habitability_land"],
+):
     training_metrics = load_dataset(TRAINING_METRIC_FILEPATH)
     test_metrics = load_dataset(TEST_METRIC_FILEPATH)
 
     all_metrics = concat((training_metrics, test_metrics), dim="case")
     all_metrics = all_metrics.sortby(all_metrics.rotation_period)
 
-    make_eccentric_emulators_and_plot(training_metrics, filename_suffix="training")
-    make_eccentric_emulators_and_plot(all_metrics, filename_suffix="all")
+    make_eccentric_emulators_and_plot(
+        training_metrics,
+        filename_suffix="training",
+        emulated_variable_names=emulated_variable_names,
+    )
+    make_eccentric_emulators_and_plot(
+        all_metrics,
+        filename_suffix="all",
+        emulated_variable_names=emulated_variable_names,
+    )
 
 
 if __name__ == "__main__":

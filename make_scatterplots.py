@@ -11,7 +11,12 @@ from plotting_customizations import plot_filetypes
 from plotting_functions import plot_scatterplot, set_rotation_xaxis
 
 
-def plot_metric_scatterplots(*metrics_filepaths, dimension_list=COORDINATE_NAMES):
+def plot_metric_scatterplots(
+    *metrics_filepaths,
+    dimension_list: list[str] = COORDINATE_NAMES,
+    temperature_variable_name: str = "tsurf_land_average",
+    precipitation_variable_name: str = "prec_land_average",
+) -> dict[str, plt.Figure]:
     dataset = concatenate_datasets(*metrics_filepaths)
 
     dimensions = {
@@ -22,27 +27,36 @@ def plot_metric_scatterplots(*metrics_filepaths, dimension_list=COORDINATE_NAMES
     temperature_scatterplots = plot_scatterplot(
         dimensions,
         COORDINATE_PRINT_NAMES,
-        dataset.tsurf_land_average,
+        dataset.get(temperature_variable_name),
         [r"Surface Temperature (${}^\circ$ C)"],
         scatter_kwargs=dict(s=64, c="#F5425A"),
         filetypes=plot_filetypes,
     )
+
     precipitation_scatterplots = plot_scatterplot(
         dimensions,
         COORDINATE_PRINT_NAMES,
-        dataset.prec_land_average,
+        dataset.get(precipitation_variable_name),
         ["Precipitation (mm/day)"],
         scatter_kwargs=dict(s=64, c="#0A89B8"),
         filetypes=plot_filetypes,
     )
 
-    return dict(
-        tsurf_scatterplots=temperature_scatterplots,
-        prec_scatterplots=precipitation_scatterplots,
-    )
+    return {
+        "tsurf_scatterplots": temperature_scatterplots,
+        "prec_scatterplots": precipitation_scatterplots,
+    }
 
 
-def plot_combined_scatterplots(*metrics_filepaths, dimension_list=COORDINATE_NAMES):
+def plot_combined_scatterplots(
+    *metrics_filepaths,
+    dimension_list=COORDINATE_NAMES,
+    temperature_variable_name="tsurf_land_average",
+    precipitation_variable_name="prec_land_average",
+    temperature_habitability_variable_name="fT_land",
+    precipitation_habitability_variable_name="fprec_land",
+    climate_habitability_variable_name="habitability_land",
+):
     dataset = concatenate_datasets(*metrics_filepaths)
 
     all_dimensions = {
@@ -53,12 +67,12 @@ def plot_combined_scatterplots(*metrics_filepaths, dimension_list=COORDINATE_NAM
     fig, axes = plt.subplots(2, 3, figsize=(20, 8))
 
     quantities = [
-        dataset.tsurf_land_average,
-        dataset.prec_land_average,
-        np.zeros_like(dataset.tsurf_land_average),
-        dataset.fT_land,
-        dataset.fprec_land,
-        dataset.habitability_land,
+        dataset.get(temperature_variable_name),
+        dataset.get(precipitation_variable_name),
+        np.zeros_like(dataset.get(temperature_variable_name)),
+        dataset.get(temperature_habitability_variable_name),
+        dataset.get(precipitation_habitability_variable_name),
+        dataset.get(climate_habitability_variable_name),
     ]
     quantity_plot_names = [
         r"Surface Temperature (${}^\circ$ C)",

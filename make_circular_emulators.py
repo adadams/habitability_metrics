@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import numpy as np
 from emulator import build_emulator
 from matplotlib import pyplot as plt
@@ -11,7 +9,8 @@ from plotting_customizations import (
 )
 from plotting_functions import plot_noneccentric_emulator_grid
 from sklearn.gaussian_process.kernels import RBF, WhiteKernel
-from xarray import load_dataset
+from user_filepaths import LOCAL_REPOSITORY_DIRECTORY
+from xarray import Dataset, load_dataset
 
 RBF_KERNEL_PARAMETERS = dict(
     length_scale=[1, 15], length_scale_bounds=[[1e-10, 1e10], [1e-10, 1e10]]
@@ -25,7 +24,7 @@ GPR_KWARGS = {
     **GAUSSIAN_PROCESS_REGRESSION_PARAMETERS,
 }
 
-CIRCULAR_METRIC_FILEPATH = Path("circular_metrics.nc")
+CIRCULAR_METRIC_FILEPATH = LOCAL_REPOSITORY_DIRECTORY / "circular_metrics.nc"
 
 
 def build_circular_emulators(circular_metrics, emulated_variable_names, **GPR_kwargs):
@@ -117,7 +116,7 @@ def plot_emulated_grid(
 
 def make_circular_emulator_and_plot(
     circular_metrics,
-    emulated_variables=["fT_land", "fprec_land", "habitability_land"],
+    emulated_variables: list[str],
     **GPR_kwargs,
 ):
     return plot_emulated_grid(
@@ -125,9 +124,12 @@ def make_circular_emulator_and_plot(
     )
 
 
-def run_for_circular_metrics():
-    circular_metrics = load_dataset(CIRCULAR_METRIC_FILEPATH)
-    make_circular_emulator_and_plot(circular_metrics, **GPR_KWARGS)
+def run_for_circular_metrics(
+    emulated_variables: list[str] = ["fT_land", "fprec_land", "habitability_land"],
+):
+    circular_metrics: Dataset = load_dataset(CIRCULAR_METRIC_FILEPATH)
+
+    make_circular_emulator_and_plot(circular_metrics, emulated_variables, **GPR_KWARGS)
 
     return circular_metrics
 

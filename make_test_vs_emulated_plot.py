@@ -163,12 +163,12 @@ def plot_residuals_versus_RMS_distances(
     return fig, (RMS_ax, colorbar_ax)
 
 
-def run_plotting_routines():
+def run_plotting_routines(habitability_variable_name: str = "habitability_land"):
     training_metrics = load_dataset(TRAINING_METRIC_FILEPATH)
     test_metrics = load_dataset(TEST_METRIC_FILEPATH)
 
     training_habitability_emulator = build_eccentric_emulator(
-        training_metrics, "habitability_land", use_polar=USE_POLAR, **GPR_KWARGS
+        training_metrics, habitability_variable_name, use_polar=USE_POLAR, **GPR_KWARGS
     )
 
     training_coordinates = get_eccentric_coordinates_as_dict(training_metrics)
@@ -177,7 +177,7 @@ def run_plotting_routines():
     predicted_test_habitabilities = predict_metrics_from_emulator(
         training_habitability_emulator, test_coordinates
     )
-    test_habitabilities = test_metrics.habitability_land
+    test_habitabilities = test_metrics.get(habitability_variable_name)
 
     fig_1, ax_1 = plot_test_habitabilities_versus_emulator_predictions(
         predicted_test_habitabilities, test_coordinates, test_habitabilities
@@ -190,9 +190,10 @@ def run_plotting_routines():
         test_habitabilities,
     )
 
-    return dict(
-        test_vs_training_plot=(fig_1, ax_1), residuals_vs_RMS_plot=(fig_2, axes_2)
-    )
+    return {
+        "test_vs_training_plot": (fig_1, ax_1),
+        "residuals_vs_RMS_plot": (fig_2, axes_2),
+    }
 
 
 if __name__ == "__main__":

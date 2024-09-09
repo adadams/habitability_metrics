@@ -18,14 +18,33 @@ from make_zero_obliquity_comparison_plot import make_zero_obliquity_comparison_p
 def make_all_figures():
     create_circular_metrics_file()
     make_zero_obliquity_comparison_plot(CIRCULAR_METRIC_FILEPATH)
-    run_for_circular_metrics()
+    run_for_circular_metrics(
+        emulated_variables=["fT_land", "frunoff_land", "static_habitability_land"]
+    )
+
     create_eccentric_metrics_file(TRAINING_INPUT_FILEPATH, TRAINING_OUTPUT_FILEPATH)
     create_eccentric_metrics_file(TEST_INPUT_FILEPATH, TEST_OUTPUT_FILEPATH)
-    run_for_training_and_all_metrics()
-    plot_metric_scatterplots(TRAINING_METRIC_FILEPATH, TEST_METRIC_FILEPATH)
-    plot_combined_scatterplots(TRAINING_METRIC_FILEPATH, TEST_METRIC_FILEPATH)
-    run_plotting_routines()
-    latex_table_rows = make_latex_table_output(
+    run_for_training_and_all_metrics(
+        emulated_variable_names=["fT_land", "frunoff_land", "static_habitability_land"]
+    )
+    plot_metric_scatterplots(
+        TRAINING_METRIC_FILEPATH,
+        TEST_METRIC_FILEPATH,
+        temperature_variable_name="tsurf_land_average",
+        precipitation_variable_name="prec_land_average",
+    )
+    plot_combined_scatterplots(
+        TRAINING_METRIC_FILEPATH,
+        TEST_METRIC_FILEPATH,
+        temperature_variable_name="tsurf_land_average",
+        precipitation_variable_name="runoff_land_average",
+        temperature_habitability_variable_name="fT_land",
+        precipitation_habitability_variable_name="frunoff_land",
+        climate_habitability_variable_name="static_habitability_land",
+    )
+    run_plotting_routines(habitability_variable_name="static_habitability_land")
+
+    latex_table_rows: list[str] = make_latex_table_output(
         TRAINING_METRIC_FILEPATH, TEST_METRIC_FILEPATH
     )
     for row in latex_table_rows:

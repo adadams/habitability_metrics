@@ -5,14 +5,15 @@ from matplotlib import pyplot as plt
 from pandas import read_csv
 from plotting_customizations import plot_filetypes
 from plotting_functions import set_rotation_xaxis
+from user_filepaths import LOCAL_REPOSITORY_DIRECTORY
 from xarray import load_dataset
 
 JANSEN_RESULTS = np.array([0.76, 0.78, 0.80, 0.81, 0.92, 0.87, 0.78, 0.74, 0.71])
 JANSEN_ROTATION_PERIODS = 2 ** np.arange(len(JANSEN_RESULTS))
 
-CIRCULAR_METRIC_FILEPATH = Path("circular_metrics.nc")
-
 PLOT_COLORS = {"all": "darkgreen", "ocean": "steelblue", "land": "palevioletred"}
+
+CIRCULAR_METRIC_FILEPATH = LOCAL_REPOSITORY_DIRECTORY / "circular_metrics.nc"
 
 
 def make_zero_obliquity_comparison_plot(
@@ -29,7 +30,7 @@ def make_zero_obliquity_comparison_plot(
         "ocean": circular_metrics.fT_ocean[circular_metrics.obliquity == 0.0],
     }
 
-    He_results = read_csv("ROCKE_global_mean_data_all.csv")
+    He_results = read_csv(LOCAL_REPOSITORY_DIRECTORY / "ROCKE_global_mean_data_all.csv")
     He_obliquities = He_results["obliquity"][1:].to_numpy().astype(int)
     He_zero_obl_rotation_periods = (
         (He_results["rotation period"][1:]).to_numpy().astype(float)

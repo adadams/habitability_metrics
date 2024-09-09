@@ -1,13 +1,8 @@
 from functools import partial, reduce
-from typing import Protocol
 
-from astropy.units import W, deg_C, m, mm
-from numpy import logical_and
-from xarray import Dataset, apply_ufunc, broadcast
-
-xarray_and = partial(apply_ufunc, logical_and)
-
-from dataset import (  # noqa: E402
+from astropy.units import Quantity, Unit, W, deg_C, m, mm
+from dataset import (
+    OperatesOnDataset,
     average_dataset_over_globe,
     average_dataset_over_globe_and_time,
     average_dataset_over_land,
@@ -18,12 +13,12 @@ from dataset import (  # noqa: E402
     take_annual_sum,
     take_average_across_all_years,
 )
-from model_variables import VariableAttrs  # noqa: E402
+from model_variables import VariableAttrs
+from numpy import logical_and
+from numpy.typing import ArrayLike
+from xarray import apply_ufunc, broadcast
 
-
-class OperatesOnDataset(Protocol):
-    def __call__(self, dataset: Dataset) -> Dataset: ...
-
+xarray_and = partial(apply_ufunc, logical_and)
 
 #######################################################
 """These functions return indicator variables (i.e. 0 or 1) depending on some condition."""
@@ -54,11 +49,15 @@ def accumulates_enough_rainfall(
 
 
 def accumulates_enough_runoff_moisture(
-    precipitation,  # mm/day
-    evaporation,  # mm/day
-    units=mm,
-    minimum_runoff=300 * mm,
-    number_of_days_in_a_year=365,
+    precipitation: float | ArrayLike,  # mm/day
+    evaporation: float | ArrayLike,  # mm/day
+    units: Unit = mm,
+    minimum_runoff: Quantity = 75 * mm,
+    # wikipedia article on "Evapotranspiration":
+    # "Globally, it is estimated that on average
+    # between three-fifths and three-quarters of land precipitation
+    # is returned to the atmosphere via evapotranspiration."
+    number_of_days_in_a_year: int = 365,
 ):
     enough_runoff = (
         precipitation - evaporation
@@ -196,6 +195,9 @@ habitability_metrics: dict[str, OperatesOnDataset] = {
     "fprec_global": get_fprec_over_globe,
     "fprec_land": get_fprec_over_land,
     "fprec_ocean": get_fprec_over_ocean,
+    "frunoff_global": get_frunoff_over_globe,
+    "frunoff_land": get_frunoff_over_land,
+    "frunoff_ocean": get_frunoff_over_ocean,
     "habitability_global": get_habitability_over_globe,
     "habitability_land": get_habitability_over_land,
     "habitability_ocean": get_habitability_over_ocean,
@@ -240,6 +242,24 @@ habitability_attrs: dict[str, VariableAttrs] = {
     "fprec_ocean": VariableAttrs(
         long_name="Precipitation Habitability over Ocean",
         plot_name=r"$f_\mathrm{prec}$ (ocean)",
+        units="",
+        colormap="",
+    ),
+    "frunoff_global": VariableAttrs(
+        long_name="Runoff Habitability",
+        plot_name=r"$f_\mathrm{runoff}$",
+        units="",
+        colormap="",
+    ),
+    "frunoff_land": VariableAttrs(
+        long_name="Runoff Habitability over Land",
+        plot_name=r"$f_\mathrm{runoff}$ (land)",
+        units="",
+        colormap="",
+    ),
+    "frunoff_ocean": VariableAttrs(
+        long_name="Runoff Habitability over Ocean",
+        plot_name=r"$f_\mathrm{runoff}$ (ocean)",
         units="",
         colormap="",
     ),

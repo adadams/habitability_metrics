@@ -1,9 +1,8 @@
-from pathlib import Path
-
 from sklearn.gaussian_process.kernels import RBF, WhiteKernel
+from user_filepaths import LOCAL_REPOSITORY_DIRECTORY
 
-TRAINING_METRIC_FILEPATH = Path("training_metrics.nc")
-TEST_METRIC_FILEPATH = Path("test_metrics.nc")
+TRAINING_METRIC_FILEPATH = LOCAL_REPOSITORY_DIRECTORY / "training_metrics.nc"
+TEST_METRIC_FILEPATH = LOCAL_REPOSITORY_DIRECTORY / "test_metrics.nc"
 
 RBF_KERNEL_PARAMETERS = dict(
     length_scale=[1, 15, 0.05, 0.05],
