@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 from dataset import concatenate_datasets
 from eccentric_configuration import (
@@ -9,6 +11,7 @@ from eccentric_configuration import (
 from matplotlib import pyplot as plt
 from plotting_customizations import plot_filetypes
 from plotting_functions import plot_scatterplot, set_rotation_xaxis
+from user_filepaths import LOCAL_REPOSITORY_DIRECTORY
 
 
 def plot_metric_scatterplots(
@@ -16,6 +19,7 @@ def plot_metric_scatterplots(
     dimension_list: list[str] = COORDINATE_NAMES,
     temperature_variable_name: str = "tsurf_land_average",
     precipitation_variable_name: str = "prec_land_average",
+    plot_output_directory: Path = LOCAL_REPOSITORY_DIRECTORY,
 ) -> dict[str, plt.Figure]:
     dataset = concatenate_datasets(*metrics_filepaths)
 
@@ -31,6 +35,7 @@ def plot_metric_scatterplots(
         [r"Surface Temperature (${}^\circ$ C)"],
         scatter_kwargs=dict(s=64, c="#F5425A"),
         filetypes=plot_filetypes,
+        plot_output_directory=plot_output_directory,
     )
 
     precipitation_scatterplots = plot_scatterplot(
@@ -40,6 +45,7 @@ def plot_metric_scatterplots(
         ["Precipitation (mm/day)"],
         scatter_kwargs=dict(s=64, c="#0A89B8"),
         filetypes=plot_filetypes,
+        plot_output_directory=plot_output_directory,
     )
 
     return {
@@ -56,6 +62,7 @@ def plot_combined_scatterplots(
     temperature_habitability_variable_name="fT_land",
     precipitation_habitability_variable_name="fprec_land",
     climate_habitability_variable_name="habitability_land",
+    plot_output_directory: Path = LOCAL_REPOSITORY_DIRECTORY,
 ):
     dataset = concatenate_datasets(*metrics_filepaths)
 
@@ -126,7 +133,8 @@ def plot_combined_scatterplots(
 
     for filetype in plot_filetypes:
         plt.savefig(
-            f"scatterplots_all-data_obliquity-colored.{filetype}",
+            plot_output_directory
+            / f"scatterplots_all-data_obliquity-colored.{filetype}",
             bbox_inches="tight",
             dpi=150,
         )

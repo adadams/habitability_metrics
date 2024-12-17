@@ -4,6 +4,7 @@ from emulator import construct_emulator_grid, construct_lowerD_grid
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter, ScalarFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from user_filepaths import LOCAL_REPOSITORY_DIRECTORY
 
 
 def set_rotation_xaxis(ax, rotation_period_limits=[1, 256], buffer=0.1):
@@ -25,6 +26,7 @@ def plot_scatterplot(
     quantity_plot_names,
     scatter_kwargs,
     filetypes,
+    plot_output_directory=LOCAL_REPOSITORY_DIRECTORY,
 ):
     number_of_plots = len(dimension_print_list)
     subplot_kwargs = {
@@ -62,7 +64,11 @@ def plot_scatterplot(
 
     fig.tight_layout()
     for filetype in filetypes:
-        plt.savefig(f"{quantity.name}_by-dimension_scatterplot.{filetype}", dpi=150)
+        plt.savefig(
+            plot_output_directory
+            / f"{quantity.name}_by-dimension_scatterplot.{filetype}",
+            dpi=150,
+        )
 
     return fig, axes
 
@@ -78,6 +84,7 @@ def plot_noneccentric_emulator_grid(
     plot_errors=False,
     fig=None,
     ax=None,
+    plot_output_directory=LOCAL_REPOSITORY_DIRECTORY,
 ):
     if plot_errors:
         emulator_key = "emulated_error"
@@ -137,7 +144,9 @@ def plot_noneccentric_emulator_grid(
 
     if save_within_function:
         plt.savefig(
-            f"{emulated_save_name}_emulated_grid.pdf", bbox_inches="tight", dpi=300
+            plot_output_directory / f"{emulated_save_name}_emulated_grid.pdf",
+            bbox_inches="tight",
+            dpi=300,
         )
 
     return fig, ax
@@ -159,6 +168,7 @@ def plot_grid_of_grids(
     contour_kwargs=dict(),
     scatter_kwargs=dict(),
     plot_errors=False,
+    plot_output_directory=LOCAL_REPOSITORY_DIRECTORY,
 ):
     fixed_dimensions = {
         name: None for name in plotted_dimension_names + fixed_dimension_names
@@ -370,7 +380,8 @@ def plot_grid_of_grids(
     fig.subplots_adjust(hspace=0.1, wspace=0.1)
 
     plt.savefig(
-        f"{emulated_save_name}_{inner_x_name}_vs_{inner_y_name}_grid_in_{outer_x_name}_and_{outer_y_name}.pdf",
+        plot_output_directory
+        / f"{emulated_save_name}_{inner_x_name}_vs_{inner_y_name}_grid_in_{outer_x_name}_and_{outer_y_name}.pdf",
         bbox_inches="tight",
         dpi=300,
     )

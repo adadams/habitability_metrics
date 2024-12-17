@@ -18,6 +18,7 @@ CIRCULAR_METRIC_FILEPATH = LOCAL_REPOSITORY_DIRECTORY / "circular_metrics.nc"
 
 def make_zero_obliquity_comparison_plot(
     circular_metric_filepath: Path,
+    plot_output_directory: Path = LOCAL_REPOSITORY_DIRECTORY,
 ) -> list[plt.figure, plt.axis]:
     circular_metrics = load_dataset(circular_metric_filepath)
 
@@ -76,7 +77,9 @@ def make_zero_obliquity_comparison_plot(
 
     fig.tight_layout()
     for filetype in plot_filetypes:
-        plt.savefig(f"zero_obliquity_comparison_plus_He.{filetype}")
+        plt.savefig(
+            plot_output_directory / f"zero_obliquity_comparison_plus_He.{filetype}"
+        )
 
     return fig, ax
 

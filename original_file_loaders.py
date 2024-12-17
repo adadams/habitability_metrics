@@ -71,7 +71,7 @@ class DatasetSpecs(TypedDict):
     model_output_filepaths: Path | list[Path]
     dimensions: Dataset
     outputs_per_year: int
-    month_length_weights: NDArray[np.float_]
+    month_length_weights: NDArray[np.float64]
 
 
 class DatasetReadinSpecs(TypedDict):
@@ -164,7 +164,7 @@ def get_He2022_specs(
         for filepath in model_output_filepaths
     ]
 
-    rotation_periods: NDArray[np.float_] = np.asarray(
+    rotation_periods: NDArray[np.float64] = np.asarray(
         [
             parameter[parameter.index("X") + 1 : parameter.index("OBL")]
             for parameter in run_parameters
@@ -172,16 +172,16 @@ def get_He2022_specs(
         dtype=float,
     )
 
-    obliquities: NDArray[np.float_] = np.asarray(
+    obliquities: NDArray[np.float64] = np.asarray(
         [parameter[parameter.index("OBL") + 3 :] for parameter in run_parameters],
         dtype=float,
     )
 
-    eccentricities: NDArray[np.float_] = np.zeros_like(rotation_periods)
+    eccentricities: NDArray[np.float64] = np.zeros_like(rotation_periods)
 
-    longitudes: NDArray[np.float_] = np.zeros_like(rotation_periods)
+    longitudes: NDArray[np.float64] = np.zeros_like(rotation_periods)
 
-    month_length_weights: NDArray[np.float_] = np.ones((len(rotation_periods), 12))
+    month_length_weights: NDArray[np.float64] = np.ones((len(rotation_periods), 12))
 
     dimensions: Dataset = Dataset(
         {

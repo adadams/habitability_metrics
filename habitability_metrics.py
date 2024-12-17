@@ -16,7 +16,7 @@ from dataset import (
 from model_variables import VariableAttrs
 from numpy import logical_and
 from numpy.typing import ArrayLike
-from xarray import apply_ufunc, broadcast
+from xarray import DataArray, Dataset, apply_ufunc, broadcast
 
 xarray_and = partial(apply_ufunc, logical_and)
 
@@ -52,7 +52,7 @@ def accumulates_enough_runoff_moisture(
     precipitation: float | ArrayLike,  # mm/day
     evaporation: float | ArrayLike,  # mm/day
     units: Unit = mm,
-    minimum_runoff: Quantity = 75 * mm,
+    minimum_runoff: Quantity = 50 * mm,
     # wikipedia article on "Evapotranspiration":
     # "Globally, it is estimated that on average
     # between three-fifths and three-quarters of land precipitation
@@ -89,7 +89,7 @@ def compose_indicators(*indicator_functions):
 
 #######################################################
 # ------------------ Temperature Metric ------------------
-get_fT_indicators = map_function_arguments_to_dataset_variables(
+get_fT_indicators: OperatesOnDataset = map_function_arguments_to_dataset_variables(
     is_temperate, dict(temperature="tsurf")
 )
 
@@ -110,7 +110,7 @@ get_annual_precipitation = map_function_arguments_to_dataset_variables(
 )
 
 
-def get_fprec_indicators(dataset):
+def get_fprec_indicators(dataset: Dataset) -> DataArray:
     return accumulates_enough_rainfall(get_annual_precipitation(dataset=dataset))
 
 
@@ -135,14 +135,14 @@ get_annual_evaporation = map_function_arguments_to_dataset_variables(
 )
 
 
-def get_frunoff_indicators(dataset):
+def get_frunoff_indicators(dataset: Dataset) -> DataArray:
     return accumulates_enough_runoff_moisture(
         get_annual_precipitation(dataset=dataset),
         get_annual_evaporation(dataset=dataset),
     )
 
 
-def get_time_averaged_frunoff(dataset):
+def get_time_averaged_frunoff(dataset: Dataset) -> DataArray:
     return take_average_across_all_years(get_frunoff_indicators(dataset=dataset))
 
 

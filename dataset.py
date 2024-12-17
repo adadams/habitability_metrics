@@ -29,7 +29,7 @@ def build_dataset_from_multiple_files(
     dimensions: xr.Dataset,
     variables: list[str],
     outputs_per_year: int = 12,
-    month_length_weights: NDArray[np.float_] | None = None,
+    month_length_weights: NDArray[np.float64] | None = None,
     case_name: str = "file_index",
     month_name: str = "record",
 ) -> xr.Dataset:
@@ -97,7 +97,7 @@ def build_dataset_from_single_file(
     model_output_filepaths: Path,  # to file that can be loaded as xr.Dataset
     dimensions: xr.Dataset,
     outputs_per_year: int = 12,
-    month_length_weights: NDArray[np.float_] | None = None,
+    month_length_weights: NDArray[np.float64] | None = None,
     case_name: str = "file_index",
     month_name: str = "record",
 ) -> xr.Dataset:
@@ -349,9 +349,11 @@ def take_every_average(
     quantity: xr.DataArray, area_weights: xr.DataArray, month_length_weights
 ):
     if "month" in area_weights.dims:
-        area_weights = area_weights.weighted(month_length_weights).mean("month")
+        area_weights = area_weights.weighted(month_length_weights).mean(
+            "month", skipna=True
+        )
     if "year" in area_weights.dims:
-        area_weights = area_weights.mean("year")
+        area_weights = area_weights.mean("year", skipna=True)
 
     return take_global_average(
         take_time_average(quantity, month_length_weights), area_weights
@@ -366,24 +368,24 @@ def take_global_average(quantity, area_weights=None):
     return quantity_weighted_by_area.mean(["lat", "lon"])
 
 
-def take_annual_average(quantity, month_length_weights):
+def take_annual_average(quantity: xr.DataArray, month_length_weights: xr.DataArray):
     quantity_weighted_by_month_length = quantity.weighted(month_length_weights)
 
-    return quantity_weighted_by_month_length.mean("month")
+    return quantity_weighted_by_month_length.mean("month", skipna=True)
 
 
-def take_annual_sum(quantity, month_length_weights):
+def take_annual_sum(quantity: xr.DataArray, month_length_weights: xr.DataArray):
     quantity_weighted_by_month_length = quantity.weighted(month_length_weights)
 
-    return quantity_weighted_by_month_length.sum("month")
+    return quantity_weighted_by_month_length.sum("month", skipna=True)
 
 
 def take_average_across_all_years(quantity: xr.DataArray):
     """That is, the average January across all years, the average Feb..."""
-    return quantity.mean("year")
+    return quantity.mean("year", skipna=True)
 
 
-def take_time_average(quantity, month_length_weights):
+def take_time_average(quantity: xr.DataArray, month_length_weights: xr.DataArray):
     """A composition of the above time averages."""
     return take_annual_average(
         take_average_across_all_years(quantity), month_length_weights

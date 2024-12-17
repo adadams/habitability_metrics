@@ -1,3 +1,6 @@
 *.pyc
-function_mapper.py
 .DS_Store
+make_runoff_metric_mean_per_month.py
+compare_water-based_metrics.py
+*.pdf
+*.png

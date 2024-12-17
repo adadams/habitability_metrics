@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 from eccentric_configuration import (
     GPR_KWARGS,
@@ -12,6 +14,7 @@ from make_eccentric_emulators import (
 )
 from matplotlib import pyplot as plt
 from plotting_functions import set_rotation_xaxis
+from user_filepaths import LOCAL_REPOSITORY_DIRECTORY
 from xarray import load_dataset
 
 
@@ -74,7 +77,10 @@ def calculate_normalized_polar_RMS_distances(training_coordinates, test_coordina
 
 
 def plot_test_habitabilities_versus_emulator_predictions(
-    predicted_habitabilities, test_coordinates, test_habitabilities
+    predicted_habitabilities,
+    test_coordinates,
+    test_habitabilities,
+    plot_output_directory: Path = LOCAL_REPOSITORY_DIRECTORY,
 ):
     fig, ax = plt.subplots(figsize=(8, 4))
     ax.errorbar(
@@ -108,7 +114,10 @@ def plot_test_habitabilities_versus_emulator_predictions(
     ax.set_ylabel("Habitability")
 
     fig.tight_layout()
-    plt.savefig("habitability_test-vs-training_rotation_white-kernel.pdf")
+    plt.savefig(
+        plot_output_directory
+        / "habitability_test-vs-training_rotation_white-kernel.pdf"
+    )
 
     return fig, ax
 
@@ -118,6 +127,7 @@ def plot_residuals_versus_RMS_distances(
     test_coordinates,
     predicted_habitabilities,
     test_habitabilities,
+    plot_output_directory: Path = LOCAL_REPOSITORY_DIRECTORY,
 ):
     fig = plt.figure(figsize=(6, 6))
     RMS_ax = fig.add_subplot(111)
@@ -134,6 +144,7 @@ def plot_residuals_versus_RMS_distances(
         f"There are {np.sum(np.abs(residuals.values)>1)} points more than 1 sigma away from their predictions, ",
         f"and {np.sum(np.abs(residuals.values)>2)} points more than 2 sigma away.",
     )
+    print(f"{residuals=}")
 
     RMS_scatter = RMS_ax.scatter(
         normalized_polar_RMS_distances,
@@ -158,12 +169,17 @@ def plot_residuals_versus_RMS_distances(
     colorbar.ax.set_yticklabels(2 ** np.arange(9))
     colorbar.ax.set_ylabel("Rotation Period (days)")
 
-    plt.savefig("residuals_versus_RMS_distance.pdf", bbox_inches="tight")
+    plt.savefig(
+        plot_output_directory / "residuals_versus_RMS_distance.pdf", bbox_inches="tight"
+    )
 
     return fig, (RMS_ax, colorbar_ax)
 
 
-def run_plotting_routines(habitability_variable_name: str = "habitability_land"):
+def run_plotting_routines(
+    habitability_variable_name: str = "habitability_land",
+    plot_output_directory: Path = LOCAL_REPOSITORY_DIRECTORY,
+):
     training_metrics = load_dataset(TRAINING_METRIC_FILEPATH)
     test_metrics = load_dataset(TEST_METRIC_FILEPATH)
 
@@ -180,7 +196,10 @@ def run_plotting_routines(habitability_variable_name: str = "habitability_land")
     test_habitabilities = test_metrics.get(habitability_variable_name)
 
     fig_1, ax_1 = plot_test_habitabilities_versus_emulator_predictions(
-        predicted_test_habitabilities, test_coordinates, test_habitabilities
+        predicted_test_habitabilities,
+        test_coordinates,
+        test_habitabilities,
+        plot_output_directory,
     )
 
     fig_2, axes_2 = plot_residuals_versus_RMS_distances(
@@ -188,6 +207,7 @@ def run_plotting_routines(habitability_variable_name: str = "habitability_land")
         test_coordinates,
         predicted_test_habitabilities,
         test_habitabilities,
+        plot_output_directory,
     )
 
     return {
