@@ -54,8 +54,9 @@ def make_zero_obliquity_comparison_plot(
     ax.scatter(
         He_zero_obl_rotation_periods,
         He_zero_obl_fT,
-        color="gold",
-        marker="x",
+        color="indigo",
+        marker="s",
+        facecolors="none",
         s=64,
         label="He et. al. (2022)",
         zorder=2,
