@@ -53,10 +53,6 @@ def accumulates_enough_runoff_moisture(
     evaporation: float | ArrayLike,  # mm/day
     units: Unit = mm,
     minimum_runoff: Quantity = 50 * mm,
-    # wikipedia article on "Evapotranspiration":
-    # "Globally, it is estimated that on average
-    # between three-fifths and three-quarters of land precipitation
-    # is returned to the atmosphere via evapotranspiration."
     number_of_days_in_a_year: int = 365,
 ):
     enough_runoff = (
